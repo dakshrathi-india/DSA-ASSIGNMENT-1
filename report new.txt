@@ -1,0 +1,764 @@
+\documentclass[12pt,a4paper]{report}
+
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{float}
+\usepackage{tcolorbox}
+\usepackage{longtable}
+\usepackage{enumitem}
+
+\lstset{
+    language=C++,
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue}\bfseries,
+    commentstyle=\color{gray},
+    stringstyle=\color{red},
+    breaklines=true,
+    showstringspaces=false,
+    tabsize=2,
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    backgroundcolor=\color{gray!10},
+    frame=single,
+    lineskip=-1pt
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{IC 253 Assignment 1}
+\rhead{\thepage}
+
+\title{\textbf{IC 253 Assignment 1 Report}\\[0.5em]
+\large Connected Component Detection and Image Processing}
+\author{Daksh Rathi}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+%===============================================================================
+\chapter{Executive Overview}
+
+This report presents the design and implementation of both tasks from IC 253 Assignment 1. The repository is organized into two folders, \texttt{Q1} and \texttt{Q2}, corresponding to the two problems. Each folder contains the main commented implementation file \texttt{detection\_copy.cpp}, a \texttt{matrixgenerator.cpp} for test case generation, the problem statement image, instructions, and sample test inputs.
+
+Both tasks are based on connected-component style image processing and use iterative Depth-First Search (DFS) with an explicit stack. The first task works on grayscale images and classifies detected objects as rectangular or circular. The second task works on binary images, constructs sparse linked-list representations, detects connected components, extracts boundary pixels, inverts the image, and reconstructs the sparse form.
+
+\section{Repository Structure}
+
+\begin{lstlisting}[caption=Repository Layout]
+DSA-ASSIGNMENT-1/
+|-- Q1/
+|   |-- PS1.png
+|   |-- README.md
+|   |-- detection.cpp
+|   |-- detection_copy.cpp
+|   |-- matrixgenerator.cpp
+|   |-- instructions.md
+|   |-- input_tc1.in
+|   |-- input_tc2.in
+|   |-- input_tc3.in
+|   |-- input_tc4.in
+|
+|-- Q2/
+    |-- PS2.png
+    |-- readme.md
+    |-- detection.cpp
+    |-- detection_copy.cpp
+    |-- matrixgenerator.cpp
+    |-- instructions.md
+    |-- input_tc1.in
+    |-- input_tc2.in
+    |-- input_tc3.in
+    |-- input_tc4.in
+\end{lstlisting}
+
+\section{Common Technical Foundation}
+
+Both solutions are built around the following common ideas:
+
+\begin{itemize}
+    \item Iterative DFS using a custom stack
+    \item 4-connectivity (up, down, left, right)
+    \item Dynamic memory allocation for image matrices and helper structures
+    \item Linear-array representation of 2D matrices using \texttt{matrix[i*N + j]}
+    \item Linked lists for storing detected results
+    \item Overall linear-time scanning strategy of the image
+\end{itemize}
+
+%===============================================================================
+\chapter{Question 1: Object Detection in Grayscale Images}
+
+\section{Problem Description}
+
+In Question 1, the input image is a grayscale image represented by an \(M \times N\) matrix where each entry stores an intensity from 0 to 255. The objective is to detect connected regions of similar intensity and classify them as rectangular or circular.
+
+The system also computes bounding-box information for each detected region and generates a visual representation of the processed image.
+
+\section{Files Used in Q1}
+
+\begin{itemize}
+    \item \texttt{PS1.png}: problem statement image
+    \item \texttt{detection\_copy.cpp}: fully commented main implementation
+    \item \texttt{matrixgenerator.cpp}: test case generator
+    \item \texttt{instructions.md}: execution instructions
+    \item \texttt{README.md}: problem overview and algorithm explanation
+    \item \texttt{input\_tc1.in} to \texttt{input\_tc4.in}: sample generated test inputs
+\end{itemize}
+
+\section{Core Idea}
+
+The solution scans the grayscale image and launches DFS from every unvisited non-background pixel. During DFS, all connected pixels satisfying the intensity-tolerance rule are grouped into one component.
+
+For each component, the program stores:
+
+\begin{itemize}
+    \item minimum and maximum row index
+    \item minimum and maximum column index
+    \item area (number of pixels in the component)
+    \item fill ratio
+    \item shape type
+\end{itemize}
+
+\section{Algorithm Pipeline}
+
+\begin{lstlisting}[caption=Q1 Processing Pipeline]
+Input grayscale image
+    ->
+Read matrix and initialize visited array
+    ->
+For each unvisited non-zero pixel:
+    ->
+Run DFS flood-fill
+    ->
+Extract connected component
+    ->
+Compute area and bounding box
+    ->
+Compute fill ratio
+    ->
+Classify shape
+    ->
+Store result in linked list
+    ->
+Draw bounding boxes
+    ->
+Display final output and ASCII visualization
+\end{lstlisting}
+
+\section{Important Data Structures}
+
+\subsection{Point Class}
+
+The \texttt{Point} class stores the row and column of a pixel and provides a validity check for image bounds.
+
+\begin{lstlisting}[caption=Q1 Point Class]
+class Point {
+public:
+    int rownum, colnum;
+
+    Point() : rownum(-1), colnum(-1) {}
+    Point(int r, int c) : rownum(r), colnum(c) {}
+
+    bool isValid() {
+        return rownum >= 0 && rownum < M &&
+               colnum >= 0 && colnum < N;
+    }
+};
+\end{lstlisting}
+
+\subsection{Stack Class}
+
+A custom stack is used instead of recursion so that DFS remains iterative.
+
+\begin{lstlisting}[caption=Q1 Stack Class]
+class Stack {
+private:
+    Point* arr;
+    int capacity;
+    int top;
+
+public:
+    Stack(int cap = M*N) {
+        capacity = cap;
+        arr = new Point[capacity];
+        top = -1;
+    }
+
+    void push(Point p) {
+        if(top < capacity - 1)
+            arr[++top] = p;
+    }
+
+    Point pop() {
+        return arr[top--];
+    }
+
+    bool isEmpty() {
+        return top == -1;
+    }
+};
+\end{lstlisting}
+
+\subsection{Component Class}
+
+The component class stores the bounding box and area and supports fill-ratio computation.
+
+\begin{lstlisting}[caption=Q1 Component Class]
+class Component {
+public:
+    int minrow, maxrow, mincol, maxcol;
+    int area;
+
+    int height() { return maxrow - minrow + 1; }
+    int width()  { return maxcol - mincol + 1; }
+    int boxArea(){ return height() * width(); }
+
+    double fillRatio() {
+        if(boxArea() == 0) return 0.0;
+        return (double) area / boxArea();
+    }
+};
+\end{lstlisting}
+
+\subsection{Node Class}
+
+Detected components are stored in a linked list using a node class containing:
+
+\begin{itemize}
+    \item the component object
+    \item the classification type character
+    \item pointer to the next node
+\end{itemize}
+
+\section{DFS Region Expansion Logic}
+
+The DFS region-expansion function starts from a seed pixel and repeatedly explores its 4-neighbors. A neighbor is included only if:
+
+\begin{enumerate}[label=\arabic*.]
+    \item it lies within matrix bounds,
+    \item it has not been visited,
+    \item its intensity differs from the seed intensity by less than threshold \(T\).
+\end{enumerate}
+
+\begin{lstlisting}[caption=Q1 DFS Flood-Fill Pseudocode]
+buildComponent(start_row, start_col):
+    create empty component c
+    create stack s
+    push seed pixel into stack
+    mark seed visited
+
+    while stack not empty:
+        curr = pop stack
+        update bounding box
+        area++
+
+        for each 4-neighbor:
+            if valid and unvisited and
+               abs(seed_intensity - neighbor_intensity) < T:
+                push neighbor
+                mark visited
+
+    return component c
+\end{lstlisting}
+
+\section{Shape Classification}
+
+After extracting a connected component, the program classifies it based on the fill ratio of the component inside its bounding box.
+
+\subsection{Fill Ratio}
+
+\[
+\text{Fill Ratio} =
+\frac{\text{Component Area}}
+{\text{Bounding Box Area}}
+\]
+
+\subsection{Classification Rules}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|c|c|l|}
+\hline
+\textbf{Type} & \textbf{Condition} & \textbf{Interpretation} \\
+\hline
+Rectangular & Fill ratio \(\ge 0.95\) & Dense shape filling most of box \\
+\hline
+Circular & Fill ratio \(0.65 < r < 0.90\) and box nearly square & Circle-like occupancy \\
+\hline
+Other & Anything else & Irregular or noisy region \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Why Circular Fill Ratio Works}
+
+A circle inside a square has theoretical ratio:
+
+\[
+\frac{\pi r^2}{(2r)^2} = \frac{\pi}{4} \approx 0.785
+\]
+
+Hence circle-like shapes usually lie around this band, allowing practical classification using a range.
+
+\section{Noise Filtering}
+
+Very small connected components are filtered out as noise. The code treats components smaller than approximately \(1\%\) of the total image area as insignificant.
+
+\section{Output of Q1}
+
+The Q1 program provides:
+
+\begin{itemize}
+    \item detected component number
+    \item fill ratio
+    \item shape type (\texttt{r}, \texttt{c}, or \texttt{o})
+    \item bounding box coordinates
+    \item dimensions and box area
+    \item ASCII visual output with intensity-based characters
+\end{itemize}
+
+\section{ASCII Visualization}
+
+The implementation maps intensities into characters such as space, backtick, dash, plus, at-sign, and dollar-sign, allowing grayscale output to be visualized in the terminal.
+
+\section{Q1 Test Cases}
+
+The README in Q1 describes four test cases:
+
+\begin{itemize}
+    \item Test Case 1: one square, one rectangle, one circle
+    \item Test Case 2: two circles of different sizes
+    \item Test Case 3: multiple rectangles
+    \item Test Case 4: rectangle and circle kept far apart
+\end{itemize}
+
+These are generated using \texttt{matrixgenerator.cpp} and saved as \texttt{input\_tc1.in} to \texttt{input\_tc4.in}.
+
+\section{Time and Space Complexity of Q1}
+
+Since each pixel is visited at most once during the DFS-driven grouping process, the dominant time complexity is:
+
+\[
+O(M \times N)
+\]
+
+The auxiliary structures include the matrix, visited array, stack, and result list, which together give overall space complexity:
+
+\[
+O(M \times N)
+\]
+
+%===============================================================================
+\chapter{Question 2: Binary Image Object Detection and Inversion}
+
+\section{Problem Description}
+
+Question 2 operates on a binary image where:
+
+\begin{itemize}
+    \item 0 denotes background
+    \item 1 denotes foreground
+\end{itemize}
+
+The task is not only to detect connected components, but also to represent the image sparsely, identify boundary pixels, invert foreground and background, and rebuild the sparse representation of the inverted image.
+
+\section{Files Used in Q2}
+
+\begin{itemize}
+    \item \texttt{PS2.png}: problem statement image
+    \item \texttt{detection\_copy.cpp}: fully commented implementation
+    \item \texttt{matrixgenerator.cpp}: test generator
+    \item \texttt{instructions.md}: execution notes
+    \item \texttt{readme.md}: project overview
+    \item \texttt{input\_tc1.in} to \texttt{input\_tc4.in}: sample inputs
+\end{itemize}
+
+\section{Main Objectives}
+
+The Q2 solution performs:
+
+\begin{enumerate}[label=\arabic*.]
+    \item sparse linked-list construction for the binary image,
+    \item connected-component detection over foreground pixels,
+    \item area calculation for each object,
+    \item boundary pixel extraction,
+    \item image inversion,
+    \item sparse reconstruction of the inverted image.
+\end{enumerate}
+
+\section{Q2 Pipeline}
+
+\begin{lstlisting}[caption=Q2 Processing Pipeline]
+Input binary image
+    ->
+Read image
+    ->
+Construct sparse linked list of all 1s
+    ->
+Print original sparse representation
+    ->
+Run DFS on each unvisited foreground pixel
+    ->
+Store object area and boundary pixels
+    ->
+Print all detected objects
+    ->
+Invert image
+    ->
+Print reconstructed matrix
+    ->
+Delete old sparse list
+    ->
+Build sparse list for inverted image
+    ->
+Print new sparse representation
+    ->
+Cleanup
+\end{lstlisting}
+
+\section{Sparse Representation}
+
+Only foreground pixels are stored. Each sparse node contains:
+
+\begin{itemize}
+    \item row index
+    \item column index
+    \item pixel value (always 1)
+    \item pointer to next node
+\end{itemize}
+
+\begin{lstlisting}[caption=Q2 Sparse Node]
+class Node_Sparse {
+public:
+    int rownum, colnum, value;
+    Node_Sparse* next;
+
+    Node_Sparse(int r, int c, int v) {
+        rownum = r;
+        colnum = c;
+        value = v;
+        next = NULL;
+    }
+};
+\end{lstlisting}
+
+This representation is memory-efficient when the number of foreground pixels is much smaller than \(M \times N\).
+
+\section{Object Representation in Q2}
+
+Each detected object stores:
+
+\begin{itemize}
+    \item total foreground area
+    \item total number of boundary pixels
+    \item array of boundary pixel coordinates
+\end{itemize}
+
+\begin{lstlisting}[caption=Q2 Object Class]
+class Object {
+public:
+    int area;
+    int boundary_pixel_count;
+    Point* boundary_pixel;
+
+    Object() {
+        area = 0;
+        boundary_pixel_count = 0;
+        boundary_pixel = new Point[4*(M+N)];
+    }
+};
+\end{lstlisting}
+
+\section{Boundary Pixel Definition}
+
+A foreground pixel is considered a boundary pixel if at least one of its 4-neighbors:
+
+\begin{itemize}
+    \item lies outside the image, or
+    \item has value 0.
+\end{itemize}
+
+\section{DFS-Based Component Extraction}
+
+The DFS in Q2 uses the same iterative stack idea as Q1 but works on exact binary values. Starting from a seed 1-pixel, it grows the connected component by exploring 4-neighbors.
+
+\begin{lstlisting}[caption=Q2 DFS Pseudocode]
+identifyObject(row, col):
+    create empty Object o
+    create stack
+    push seed
+    mark seed visited
+
+    while stack not empty:
+        curr = pop stack
+        o.area++
+        boundary = false
+
+        for each 4-neighbor:
+            if neighbor invalid:
+                boundary = true
+            else if matrix value is 0:
+                boundary = true
+            else if matrix value is 1 and unvisited:
+                push neighbor
+                mark visited
+
+        if boundary:
+            store curr in boundary list
+
+    return o
+\end{lstlisting}
+
+\section{Linked List of Detected Objects}
+
+Detected objects are stored dynamically in another linked list:
+
+\begin{lstlisting}[caption=Q2 Answer Node]
+class Node_Ans {
+public:
+    Object object;
+    Node_Ans* next;
+
+    Node_Ans(const Object &o) : object(o), next(NULL) {}
+};
+\end{lstlisting}
+
+This allows flexible storage regardless of the number of connected components in the image.
+
+\section{Image Inversion}
+
+The inversion logic in Q2 is straightforward and efficient:
+
+\begin{enumerate}[label=\arabic*.]
+    \item set the entire matrix to 1,
+    \item traverse the sparse list of original foreground pixels,
+    \item set those positions to 0.
+\end{enumerate}
+
+Thus every original 1 becomes 0 and every original 0 becomes 1.
+
+\begin{lstlisting}[caption=Q2 Inversion Logic]
+void invertImage(Node_Sparse* head){
+    for(int i=0; i<M; i++){
+        for(int j=0; j<N; j++){
+            matrix[i*N+j] = 1;
+        }
+    }
+
+    while(head != NULL){
+        int row = head->rownum;
+        int col = head->colnum;
+        matrix[row*N+col] = 0;
+        head = head->next;
+    }
+}
+\end{lstlisting}
+
+\section{Reconstruction}
+
+After inversion, the old sparse linked list is deleted. Then the matrix is scanned again to rebuild a new sparse representation of the inverted image.
+
+\section{Q2 Test Cases}
+
+The Q2 readme describes four binary-image test cases:
+
+\begin{itemize}
+    \item Test Case 1: square + rectangle + circle
+    \item Test Case 2: two circles
+    \item Test Case 3: multiple rectangles
+    \item Test Case 4: hollow and filled shapes
+\end{itemize}
+
+This gives good coverage of connected regions, hollow boundaries, separate components, and mixed layouts.
+
+\section{Output of Q2}
+
+The Q2 implementation prints:
+
+\begin{itemize}
+    \item original sparse linked list
+    \item detected objects
+    \item area of each object
+    \item number of boundary pixels
+    \item boundary coordinates
+    \item final reconstructed image matrix after inversion
+    \item new sparse linked list after inversion
+\end{itemize}
+
+\section{Time and Space Complexity of Q2}
+
+Sparse-list construction requires scanning the matrix:
+
+\[
+O(M \times N)
+\]
+
+Connected-component detection still visits each foreground pixel at most once, giving total traversal complexity:
+
+\[
+O(M \times N)
+\]
+
+Image inversion is also linear because the matrix is reset once and then original 1-positions are selectively zeroed.
+
+Therefore, the overall time complexity remains:
+
+\[
+O(M \times N)
+\]
+
+The total space used includes:
+
+\begin{itemize}
+    \item the image matrix,
+    \item visited array,
+    \item stack,
+    \item sparse linked list,
+    \item detected object list.
+\end{itemize}
+
+Hence overall space complexity is:
+
+\[
+O(M \times N)
+\]
+
+%===============================================================================
+\chapter{Comparative Analysis of Q1 and Q2}
+
+\section{Common Ideas}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Aspect} & \textbf{Q1} & \textbf{Q2} \\
+\hline
+Traversal method & Iterative DFS & Iterative DFS \\
+\hline
+Connectivity & 4-connectivity & 4-connectivity \\
+\hline
+Visited tracking & Yes & Yes \\
+\hline
+Dynamic memory & Yes & Yes \\
+\hline
+Linked-list usage & Detected components & Sparse list + detected objects \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{Key Differences}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Aspect} & \textbf{Q1} & \textbf{Q2} \\
+\hline
+Image type & Grayscale & Binary \\
+\hline
+Grouping rule & Intensity threshold \(T\) & Exact value 1 \\
+\hline
+Post processing & Shape classification & Inversion + sparse rebuild \\
+\hline
+Main result & Rectangle/circle detection & Components + boundaries + inversion \\
+\hline
+Representation focus & Dense image analysis & Sparse linked-list analysis \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{Learning Outcomes}
+
+Through this assignment, the following concepts were reinforced:
+
+\begin{enumerate}[label=\arabic*.]
+    \item implementation of DFS without recursion,
+    \item handling of connected components in image-like data,
+    \item custom stack and linked-list design,
+    \item dynamic memory management in C++,
+    \item practical shape analysis using numerical heuristics,
+    \item sparse representations for memory-efficient storage.
+\end{enumerate}
+
+%===============================================================================
+\chapter{Compilation and Execution}
+
+\section{Q1 Commands}
+
+\begin{lstlisting}[language=bash, caption=Q1 Compilation and Execution]
+g++ matrixgenerator.cpp -o matrixgenerator.exe
+./matrixgenerator.exe
+
+g++ detection_copy.cpp -o detection.exe
+./detection.exe < input_tc1.in
+./detection.exe < input_tc2.in
+./detection.exe < input_tc3.in
+./detection.exe < input_tc4.in
+\end{lstlisting}
+
+\section{Q2 Commands}
+
+\begin{lstlisting}[language=bash, caption=Q2 Compilation and Execution]
+g++ matrixgenerator.cpp -o matrixgenerator.exe
+./matrixgenerator.exe
+
+g++ detection_copy.cpp -o detection.exe
+./detection.exe < input_tc1.in
+./detection.exe < input_tc2.in
+./detection.exe < input_tc3.in
+./detection.exe < input_tc4.in
+\end{lstlisting}
+
+%===============================================================================
+\chapter{Conclusion}
+
+The repository demonstrates two complete C++ implementations for image-based connected-component analysis. Q1 solves grayscale object detection and shape classification using fill-ratio heuristics, while Q2 extends the connected-component idea to binary images with sparse linked-list storage, boundary extraction, and inversion. Both solutions remain algorithmically efficient, rely on clean DFS-based exploration, and show strong application of core data structures taught in DSA.
+
+\appendix
+
+\chapter{Quick Summary of Output Expectations}
+
+\section{Q1}
+Typical output contains:
+
+\begin{itemize}
+    \item detected region number,
+    \item fill ratio,
+    \item type: rectangular/circular/other,
+    \item bounding box coordinates,
+    \item visual representation with bounding boxes.
+\end{itemize}
+
+\section{Q2}
+Typical output contains:
+
+\begin{itemize}
+    \item original sparse linked list,
+    \item connected objects and their areas,
+    \item boundary pixels,
+    \item reconstructed inverted matrix,
+    \item sparse linked list after inversion.
+\end{itemize}
+
+\chapter{References}
+
+\begin{enumerate}
+    \item IC 253 Assignment 1 repository files and READMEs
+    \item Q1: grayscale connected-component detection implementation
+    \item Q2: binary sparse matrix and inversion implementation
+\end{enumerate}
+
+\end{document}
