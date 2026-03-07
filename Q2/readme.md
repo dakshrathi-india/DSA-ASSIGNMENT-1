@@ -239,7 +239,7 @@ g++ matrixgenerator.cpp -o matrixgenerator.exe
 ./matrixgenerator.exe
 
 # Step 3: Compile detector
-g++ detection_copy.cpp -o detection.exe
+g++ detection.cpp -o detection.exe
 
 # Step 4: Run on test cases
 ./detection.exe < input_tc1.in

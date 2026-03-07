@@ -150,7 +150,7 @@ class Component{
             return height()*width();
         }
 
-        double fillRatio(){
+        double areaRatio(){
             if (boxArea() == 0)
                 return 0.0;
 
@@ -159,9 +159,9 @@ class Component{
 };
 
 // this function checks whether the component is rectangular
-// if the fillRatio of the component is >= 0.95 then we will consider it to be a rectangular region
+// if the areaRatio of the component is >= 0.90 then we will consider it to be a rectangular region
 bool isRectangular(Component c){
-    if (c.fillRatio() >= 0.95)
+    if (c.areaRatio() >= 0.90)
         return true;
     else
         return false;
@@ -176,8 +176,8 @@ bool isCircular(Component c){
         return false;
     }
 
-    // expected fillRatio = 0.785 = ((pi*r*r)/(4*r*r))
-    if (c.fillRatio() > 0.65 && c.fillRatio() < 0.90)
+    // expected areaRatio = 0.785 = ((pi*r*r)/(4*r*r))
+    if (c.areaRatio() > 0.60 && c.areaRatio() < 0.85)
         return true;
     else    
         return false;
@@ -313,7 +313,7 @@ void printIdentifiedComponents(Node* head){
         cout<<"The identifed components are -> "<<endl<<endl;
         while(temp != NULL){
             cout<<"Component "<<count++<<endl;
-            cout<<"FillRatio -> "<<temp->component.fillRatio()<<endl;
+            cout<<"FillRatio -> "<<temp->component.areaRatio()<<endl;
             cout<<"Type -> "<<temp->type<<endl;
             cout<<"PROPERTIES OF THE BOUNDARY BOX"<<endl;
             cout<<"Min Row "<<temp->component.minrow<<endl;
@@ -396,12 +396,17 @@ int main(){
     initMatrix();
     initVisited();
 
+    cout<<"THE INPUT IMAGE IS"<<endl;
+    printVisualImage();
+
     Ans_H = NULL;
     Ans_T = NULL;
 
     detection();
     printIdentifiedComponents(Ans_H);
     buildBoundary(Ans_H);
+
+    cout<<"DETECTED REGIONS"<<endl;
     printVisualImage();
 
     freeHeapMemory();

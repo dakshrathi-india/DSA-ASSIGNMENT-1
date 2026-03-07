@@ -32,7 +32,7 @@ The solution scans the image point by point and uses a stack to gather one full 
    - push a neighbour only if it is inside the image, has not been visited, and satisfies `|seed_intensity - neighbour_intensity| < T`
    - keep updating the boundary-box attributes of the current region: minimum row, maximum row, minimum column, maximum column, and area
 6. **Noise Filtering**: Ignore very small regions whose area is less than 1% of the total image size.
-7. **Classify Shape Type**: Use fill ratio and box shape to decide whether the detected region is rectangular or circular.
+7. **Classify Shape Type**: Use `areaRatio` and box shape to decide whether the detected region is rectangular or circular.
 8. **Visualize**: Draw white bounding boxes around detected objects and display them with ASCII art.
 
 ## Data Structures
@@ -71,7 +71,7 @@ Methods:
    - height(): Height of the boundary box
    - width(): Width of the boundary box
    - boxArea(): Area of the boundary box
-   - fillRatio(): ratio = region_area / boundary_box_area
+   - areaRatio(): ratio = region_area / boundary_box_area
 ```
 
 ### Class: Node
@@ -179,14 +179,14 @@ Meaning:
 
 ### Algorithm: Shape Classification
 ```cpp
-Fill Ratio:
-   fillRatio = area / boundingBoxArea
+areaRatio:
+   areaRatio = area / boundingBoxArea
 
 Rectangular region:
-   fillRatio >= 0.95
+   areaRatio > 0.90
 
 Circular region:
-   0.65 < fillRatio < 0.90
+   0.60 < areaRatio < 0.85
    and the boundary box is nearly square
 
 Other region:
@@ -264,7 +264,7 @@ The program produces the following outputs:
 ### 1. Component Analysis
 For each detected object, displays:
 - Object number
-- Fill ratio (actual pixels / bounding box area)
+- areaRatio (actual pixels / bounding box area)
 - Shape classification: **'r'** (rectangular) or **'c'** (circular)
 - Bounding box coordinates (min/max row/col)
 - Dimensions (height, width)
@@ -301,7 +301,7 @@ This creates: `input_tc1.in`, `input_tc2.in`, `input_tc3.in`, `input_tc4.in`
 
 ### Step 3: Compile the detection program
 ```bash
-g++ detection_copy.cpp -o detection.exe
+g++ detection.cpp -o detection.exe
 ```
 
 ### Step 4: Run detection on test cases
@@ -417,7 +417,7 @@ Edit `matrixgenerator.cpp`:
 For each detected component:
 ```
 Component 1
-FillRatio -> 0.98
+AreaRatio -> 0.98
 Type -> r
 PROPERTIES OF THE BOUNDARY BOX
 Min Row 5
@@ -433,11 +433,11 @@ Box Area 144
 
 ## Output Interpretation Guide
 
-### Fill Ratio Range
+### areaRatio Range
 
-- **0.95 - 1.0**: Nearly perfect rectangle because the region fills most of its box
-- **0.65 - 0.90**: Likely a circle because the filled area is lower than a rectangle but still dense
-- **Below 0.65 or above 0.90**: Irregular or other shape
+- **Above 0.90**: Likely a rectangle because the region fills most of its box
+- **0.60 - 0.85**: Likely a circle when the boundary box is also nearly square
+- **Outside these ranges**: Irregular or other shape
 
 ### Type Field
 
@@ -500,7 +500,7 @@ You have successfully run Q1 when:
 - all 4 input files are generated without errors
 - the detector compiles without errors
 - each test case produces component output
-- fill ratio, type, and bounding-box values are shown
+- areaRatio, type, and bounding-box values are shown
 - the visual output displays the bounding boxes clearly
 - the program exits without runtime or memory errors
 
@@ -510,7 +510,7 @@ You have successfully run Q1 when:
 2. **Stack-based traversal**: Using an explicit stack keeps the processing order simple and avoids recursion
 3. **Visited tracking**: Eliminates redundant processing and cycle detection
 4. **Neighbour-based region growth**: Pixels are grouped by local intensity similarity and 4-neighbour checks
-5. **Shape metrics**: Fill ratio elegantly captures shape information
+5. **Shape metrics**: areaRatio helps separate dense rectangular regions from circular ones
 6. **Linked lists**: Dynamic data structure perfect for unknown component count
 
 ---
