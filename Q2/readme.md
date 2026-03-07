@@ -2,11 +2,11 @@
 
 ## Project Overview
 
-This Q2 project implements a **binary image processing system** that detects connected components (objects) in black-and-white images and performs image inversion. The system uses Depth-First Search (DFS) with efficient sparse matrix representation using linked lists.
+This Q2 project implements a **binary image processing system** that detects separate foreground regions in black-and-white images and performs image inversion. The system uses a stack-based region collection process together with efficient sparse matrix representation using linked lists.
 
 ### Core Objectives
 
-1. **Component Detection**: Identify all connected foreground regions in a binary image
+1. **Object Detection**: Identify all foreground regions in a binary image
 2. **Boundary Extraction**: Find and store edge pixels for each detected object
 3. **Sparse Representation**: Efficiently represent images using linked lists
 4. **Image Inversion**: Convert foreground to background and vice versa
@@ -17,7 +17,7 @@ This Q2 project implements a **binary image processing system** that detects con
 ## Problem Statement
 
 Given a binary image (M×N matrix with pixels 0 or 1):
-- Detect all connected components where adjacent 1s form objects
+- Detect all object regions where adjacent 1s form objects
 - Extract boundary pixels (edges touching background or image boundary)
 - Represent the image and inverted image as sparse matrices using linked lists
 - Provide detailed analysis of detected objects
@@ -37,7 +37,7 @@ Input Image (Binary)
         ↓
   Print Original Sparse Matrix
         ↓
-  DFS Component Detection ← For each unvisited 1
+  Region Detection ← For each unvisited 1
         ↓
   Identify Objects (Area + Boundary)
         ↓
@@ -56,9 +56,11 @@ Input Image (Binary)
 Output Complete
 ```
 
-### DFS-Based Flood-Fill Algorithm
+### Region Collection Process
 
-**Purpose**: Extract one complete connected component starting from a seed pixel
+**Purpose**: Extract one complete object region starting from a seed pixel
+
+The helper function used for this step is `identifyObject(start_row, start_col)`.
 
 ```
 identifyObject(row, col):
@@ -85,13 +87,19 @@ identifyObject(row, col):
     9. RETURN o
 ```
 
+In the actual implementation, the popped pixel is stored in `curr_pixel`. The program then inspects the neighbourhood of `curr_pixel` in the four direct directions. If a neighbour is valid, has value `1`, and is still unvisited, it is pushed into the stack. If any neighbour is outside the image or has value `0`, the current pixel is marked as a boundary pixel.
+
+The main `detection()` routine does not scan the full matrix directly for this step. Instead, it traverses the sparse linked list, so it only starts object collection from coordinates that already contain foreground value `1`.
+
 **4-Connectivity**: Neighbors share an edge (not diagonal)
 ```
-        N
-        ↓
-    W ← X → E
-        ↑
-        S
+       UP
+        |
+        |
+  LEFT ------ X ------ RIGHT
+        |
+        |
+      DOWN
 ```
 
 ### Boundary Pixel Definition
@@ -116,7 +124,7 @@ Methods:
 
 ### Class: Stack
 ```cpp
-Purpose: LIFO structure for DFS
+Purpose: LIFO structure for region collection
 Operations:
   - push(Point): Add to top
   - pop(): Remove from top, return value
@@ -127,7 +135,7 @@ Capacity: M*N (max pixels in image)
 
 ### Class: Object
 ```cpp
-Represents: Detected connected component
+Represents: Detected object region
 Members:
   - area: Count of foreground pixels
   - boundary_pixel_count: Number of edge pixels
@@ -214,8 +222,72 @@ Q2/
 ├── input_tc2.in                 Test case 2: Two circles
 ├── input_tc3.in                 Test case 3: Multiple rectangles
 ├── input_tc4.in                 Test case 4: Hollow and filled shapes
-├── instructions.md              Project execution guide
 └── README.md                    This file
+```
+
+## Quick Start
+
+**Prerequisites**: GCC compiler (`g++`) installed and available in `PATH`
+
+### Compile and Run
+
+```bash
+# Step 1: Compile generator
+g++ matrixgenerator.cpp -o matrixgenerator.exe
+
+# Step 2: Generate test cases
+./matrixgenerator.exe
+
+# Step 3: Compile detector
+g++ detection_copy.cpp -o detection.exe
+
+# Step 4: Run on test cases
+./detection.exe < input_tc1.in
+./detection.exe < input_tc2.in
+./detection.exe < input_tc3.in
+./detection.exe < input_tc4.in
+```
+
+## Detailed Execution Steps
+
+### Step 1: Compile Test Case Generator
+
+```bash
+g++ matrixgenerator.cpp -o matrixgenerator.exe
+```
+
+The generator creates four binary test cases and saves them as `input_tc*.in` files.
+
+### Step 2: Generate Test Input Files
+
+```bash
+./matrixgenerator.exe
+```
+
+Expected output:
+
+```text
+input_tc1.in generated
+input_tc2.in generated
+input_tc3.in generated
+input_tc4.in generated
+```
+
+### Step 3: Compile Detection Program
+
+```bash
+g++ detection_copy.cpp -o detection.exe
+```
+
+After compilation, the program builds the sparse linked list of the original image, detects all objects, inverts the image, and then rebuilds the sparse linked list for the inverted image.
+
+### Step 4: Run Detection on Each Test Case
+
+```bash
+./detection.exe < input_tc1.in
+./detection.exe < input_tc2.in
+./detection.exe < input_tc3.in
+./detection.exe < input_tc4.in
 ```
 
 ---
@@ -288,22 +360,11 @@ Expected output:
 | Read image | O(M×N) | O(M×N) | Read all pixels |
 | Initialize visited | O(M×N) | O(M×N) | Set all to false |
 | Build sparse list | O(M×N) | O(k) | k = count of 1s |
-| DFS one component | O(M×N) | O(M×N) | Worst case: entire image |
+| Process one region | O(M×N) | O(M×N) | Worst case: entire image |
 | Detect all components | O(M×N) | O(M×N) | Each pixel visited once |
 | Invert image | O(M×N + k) | O(1) | Initialize then modify k pixels |
 | Print outputs | O(M×N) | O(1) | Sequential output |
 | **Total** | **O(M×N)** | **O(M×N)** | Linear optimal complexity |
-
-**Memory Usage**:
-- Input image: M×N integers
-- Visited array: M×N booleans
-- Sparse list: ~3k pointers/values (k = foreground pixels)
-- Objects list: varies by component count
-- Stack during DFS: O(M×N) worst case
-
-**Optimization**: For 4800 pixels with only 400 foreground:
-- Dense: ~19KB
-- Sparse: ~2KB + overhead (90% savings)
 
 ---
 
@@ -357,14 +418,37 @@ SHOWING THE NEW SPARSE LL(AFTER OPERATIONS)
 **Comparison**: Compare with original to understand inversion effect  
 **Efficiency**: Still stores only 1s from inverted image
 
+## Output Format and Interpretation
+
+### Original Sparse Matrix
+
+- Shows all foreground pixels as `(row, col, value)`
+- Stores only `1`s, so it is memory efficient
+
+### Detected Objects
+
+- Lists each object's area
+- Lists boundary-pixel count
+- Lists all stored boundary coordinates
+
+### Inverted Image Matrix
+
+- Shows the full matrix after swapping `0` and `1`
+- Helps verify that the inversion step worked correctly
+
+### Inverted Sparse Matrix
+
+- Shows the sparse representation of the updated image
+- Makes it easy to compare original and inverted foreground structure
+
 ---
 
 ## Key Insights & Design Decisions
 
-### 1. Using DFS over BFS
-- **Why**: Stack-based DFS uses less memory than queue-based BFS
-- **Implementation**: Iterative using stack to avoid recursion depth limits
-- **Performance**: Same O(M×N) but better cache locality
+### 1. Using a Stack-Based Routine
+- **Why**: The stack gives a direct way to keep track of pixels still left to inspect
+- **Implementation**: Iterative using an explicit stack to avoid recursion depth limits
+- **Performance**: Same O(M×N) with simple control over the processing order
 
 ### 2. 4-Connectivity Choice
 - **Why**: Standard for binary image processing
@@ -372,7 +456,7 @@ SHOWING THE NEW SPARSE LL(AFTER OPERATIONS)
 - **Trade-off**: 4-connectivity: fewer, larger components; 8-connectivity: more components
 
 ### 3. Boundary Pixel Extraction
-- **Method**: Check all neighbors during DFS
+- **Method**: Check all neighbors while processing the current region
 - **Advantage**: Extracted simultaneously during detection, no second pass
 - **Efficiency**: O(1) per pixel, not O(M+N)
 
@@ -391,19 +475,25 @@ SHOWING THE NEW SPARSE LL(AFTER OPERATIONS)
 - **Efficiency**: O(M×N + k) instead of full 2D array scan
 - **Clever use**: Uses sparse list to identify pixels to modify
 
+### 7. Output Pipeline
+- **Original sparse list**: printed before object detection
+- **Detected objects**: printed after region collection
+- **Inverted matrix**: printed after inversion
+- **New sparse list**: printed after rebuilding the sparse representation
+
 ---
 
 ## Algorithm Correctness Proof
 
-### DFS visits all connected pixels
+### The stack routine visits all pixels in one object region
 1. Start from unvisited foreground pixel (1)
 2. Stack ensures all 4-neighbors explored
 3. Visited marking prevents revisits
 4. Loop ends when stack empty
-5. **Result**: All connected 1s visited exactly once
+5. **Result**: All object pixels in that region are visited exactly once
 
 ### Boundary detection is accurate
-1. During DFS, check all 4 neighbors
+1. During region processing, check all 4 neighbors
 2. Mark as boundary if ANY neighbor is invalid or 0
 3. Boundary pixels captured before popping
 4. **Result**: Complete boundary extracted
@@ -446,27 +536,6 @@ delete[] visited
 
 ---
 
-## Performance Characteristics
-
-### Time Complexity by Component
-- 60×80 image (4,800 pixels): ~1-2ms
-- 100×100 image (10,000 pixels): ~2-5ms
-- 500×500 image (250,000 pixels): ~50-100ms
-- Linear scaling: Doubles for 2× image size
-
-### Space Complexity
-- Dense storage: ~19KB for 60×80 image
-- Sparse (25% full): ~5KB + overhead
-- Stack during DFS: ~19KB (M×N at worst)
-
-### Bottlenecks (in order of impact)
-1. DFS traversal: O(M×N)
-2. Input/Output: O(M×N)
-3. Memory allocation: O(M×N + k)
-4. Sparse list construction: O(k)
-
----
-
 ## Code Structure
 
 ```
@@ -482,17 +551,17 @@ GLOBAL VARIABLES
 
 CLASSES
 ├── Point: Pixel coordinates
-├── Stack: DFS structure
-├── Object: Detected component
+├── Stack: region-processing structure
+├── Object: Detected region
 ├── Node_Sparse: Sparse matrix node
 └── Node_Ans: Results node
 
 FUNCTIONS
 ├── initMatrix(): Read input
 ├── initVisited(): Initialize tracking
-├── identifyObject(): Core DFS algorithm
+├── identifyObject(): Core region collection routine
 ├── sparseLL(): Build sparse list
-├── detection(): Find all components
+├── detection(): Find all object regions
 ├── invertImage(): Inversion operation
 ├── printXXX(): Output functions
 ├── delLLXXX(): Memory cleanup
@@ -534,82 +603,30 @@ MAIN
 
 ---
 
-## Enhancements & Future Work
+## Customization Guide
 
-### Possible Extensions
-1. **8-Connectivity**: Include diagonal neighbors
-2. **Hole Detection**: Identify regions inside objects
-3. **Morphological Operations**: Erosion, dilation
-4. **Multiple Component Tracking**: Assign IDs to objects
-5. **Shape Classification**: Recognize shapes (square, circle, etc.)
-6. **Contour Approximation**: Simplify boundary pixels
-7. **Image I/O**: Read/write actual image files
-8. **Visualization**: GUI display of results
-9. **Parallel Processing**: Multi-threaded DFS
-10. **Optimization**: GPU acceleration for large images
+### Modify Image Size
 
-### Code Optimization Ideas
-- Use bitmaps instead of bool arrays
-- Stack pre-allocation size optimization
-- Memoization for repeated calculations
-- Iterative image processing (skip empty regions)
+In `matrixgenerator.cpp`, change `M` and `N` for a chosen test case.
 
----
+### Modify Test Case Content
 
-## Debugging Guide
+Replace the shape-generation code in `generateTestCase()` with your own binary patterns.
 
-### Program produces no output
-- Check input file format
-- Verify first line is "M N"
-- Ensure pixel values are 0 or 1
+### Add New Test Case
 
-### Crashes or segmentation fault
-- Check array bounds in Point::isValid()
-- Verify M, N read correctly
-- Confirm memory allocations succeeded
-- Check for stack overflow (unlikely with M*N size)
+Add another branch such as `tc==5` and define a new matrix size plus foreground layout.
 
-### Unexpected object count
-- Verify 4-connectivity logic
-- Check visited marking
-- Ensure boundary condition correct
-- Run with print statements for debugging
+### Create Custom Input File
 
-### Memory issues
-- Verify delete statements executed
-- Check for circular references
-- Monitor max memory usage
-- Consider smaller test images
+Use plain text in this format:
 
----
-
-## Learning Outcomes
-
-After completing this project, you'll understand:
-
-1. **Connected Component Analysis**: Core image processing algorithm
-2. **DFS Algorithm**: Iterative implementation with stack
-3. **Sparse Data Structures**: Memory-efficient representation
-4. **Boundary Detection**: Edge extraction techniques
-5. **Linked Lists**: Dynamic data structure management
-6. **Memory Management**: Allocation/deallocation in C++
-7. **Algorithm Optimization**: Time/space trade-offs
-8. **Image Processing**: Binary image fundamentals
-9. **Testing**: Verification with multiple test cases
-10. **Code Organization**: Structured problem solving
-
----
-
-## References
-
-- Connected Components in Image Processing
-- Depth-First Search Algorithm
-- Flood-Fill Algorithms
-- Sparse Matrix Representations
-- Binary Image Processing Fundamentals
-- Data Structures (Stack, Linked List)
-- C++ Memory Management Best Practices
-- Algorithm Complexity Analysis
+```text
+M N
+pixel_row0_col0 pixel_row0_col1 ... pixel_row0_colN-1
+pixel_row1_col0 pixel_row1_col1 ... pixel_row1_colN-1
+...
+```
 
 ---
 

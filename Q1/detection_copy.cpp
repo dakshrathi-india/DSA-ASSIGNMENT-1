@@ -786,6 +786,8 @@ int main(){
     initMatrix();                                     // Read image from input
     initVisited();                                    // Initialize visited tracking
 
+    cout<<"INPUT IMAGE"<<endl;
+    printVisualImage();
     // Initialize result linked list
     Ans_H = NULL;                                     // Empty head
     Ans_T = NULL;                                     // Empty tail
@@ -794,6 +796,9 @@ int main(){
     detection();                                      // Find all connected components
     printIdentifiedComponents(Ans_H);                 // Display component details
     buildBoundary(Ans_H);                             // Draw bounding boxes
+    
+    cout<<endl<<endl;
+    cout<<"DETECTED REGIONS"<<endl;
     printVisualImage();                               // Show visual result
 
     // Cleanup

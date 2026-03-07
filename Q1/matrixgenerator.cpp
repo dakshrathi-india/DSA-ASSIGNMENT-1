@@ -3,9 +3,9 @@
 #include <string>
 using namespace std;
 
-// matrix size(change if you want)
-int M = 60;
-int N = 80;
+// reduced matrix size
+int M = 30;
+int N = 40;
 
 // Fill background with 0
 void clearMatrix(int *a) {
@@ -29,7 +29,7 @@ void writeToFile(int *a, int tc) {
     }
 
     fout.close();
-    cout << fname << " generated"<<endl;
+    cout << fname << " generated" << endl;
 }
 
 // Generate 1 testcase in matrix a
@@ -43,20 +43,20 @@ void generateTestCase(int *a, int tc) {
     // ============================================================
     if(tc == 1) {
         // Shape 1: FILLED SQUARE
-        // top-left (5,5), size 12, intensity 90
-        for(int i = 5; i < 5 + 12; i++)
-            for(int j = 5; j < 5 + 12; j++)
+        // top-left (3,3), size 6, intensity 90
+        for(int i = 3; i < 3 + 6; i++)
+            for(int j = 3; j < 3 + 6; j++)
                 a[i*N + j] = 90;
 
         // Shape 2: FILLED RECTANGLE
-        // rows 8..20, cols 30..60, intensity 140
-        for(int i = 8; i <= 20; i++)
-            for(int j = 30; j <= 60; j++)
+        // rows 5..11, cols 16..28, intensity 140
+        for(int i = 5; i <= 11; i++)
+            for(int j = 16; j <= 28; j++)
                 a[i*N + j] = 140;
 
         // Shape 3: FILLED CIRCLE
-        // center (40, 60), radius 8, intensity 180
-        int cx = 40, cy = 60, r = 8;
+        // center (21, 30), radius 5, intensity 180
+        int cx = 21, cy = 30, r = 5;
         for(int i = 0; i < M; i++)
             for(int j = 0; j < N; j++) {
                 int dx = i - cx;
@@ -67,16 +67,16 @@ void generateTestCase(int *a, int tc) {
     }
 
     // ============================================================
-    // TEST CASE 2: Two Circles (different sizes + intensities)
+    // TEST CASE 2: Two Circles (same sizes + intensities)
     // ============================================================
     if(tc == 2) {
         // Shape 1: FILLED CIRCLE (bigger)
-        // center (20, 20), radius 10, intensity 120
-        int cx1 = 20, cy1 = 20, r1 = 10;
+        // center (10, 10), radius 5, intensity 120
+        int cx1 = 10, cy1 = 10, r1 = 5;
 
         // Shape 2: FILLED CIRCLE (smaller)
-        // center (40, 55), radius 7, intensity 170
-        int cx2 = 40, cy2 = 55, r2 = 7;
+        // center (20, 28), radius 5, intensity 170
+        int cx2 = 20, cy2 = 28, r2 = 5;
 
         for(int i = 0; i < M; i++)
             for(int j = 0; j < N; j++) {
@@ -95,32 +95,32 @@ void generateTestCase(int *a, int tc) {
     // ============================================================
     if(tc == 3) {
         // Shape 1: FILLED RECTANGLE (big)
-        // rows 10..25, cols 10..45, intensity 100
-        for(int i = 10; i <= 25; i++)
-            for(int j = 10; j <= 45; j++)
+        // rows 5..13, cols 5..20, intensity 100
+        for(int i = 5; i <= 13; i++)
+            for(int j = 5; j <= 20; j++)
                 a[i*N + j] = 100;
 
         // Shape 2: FILLED RECTANGLE (smaller)
-        // rows 35..50, cols 55..75, intensity 150
-        for(int i = 35; i <= 50; i++)
-            for(int j = 55; j <= 75; j++)
+        // rows 18..25, cols 26..36, intensity 150
+        for(int i = 18; i <= 25; i++)
+            for(int j = 26; j <= 36; j++)
                 a[i*N + j] = 150;
     }
 
     // ============================================================
-    // TEST CASE 4: Rectangle and Circle FAR APART (no overlap / no touching)
+    // TEST CASE 4: Rectangle and Circle FAR APART
     // ============================================================
     if(tc == 4) {
 
         // Shape 1: FILLED RECTANGLE (top-left)
-        // rows 8..20, cols 10..35, intensity 80
-        for(int i = 8; i <= 20; i++)
-            for(int j = 10; j <= 35; j++)
+        // rows 4..12, cols 5..16, intensity 80
+        for(int i = 4; i <= 12; i++)
+            for(int j = 5; j <= 16; j++)
                 a[i*N + j] = 80;
 
         // Shape 2: FILLED CIRCLE (bottom-right)
-        // center (40, 65), radius 8, intensity 160
-        int cx = 40, cy = 65, r = 8;
+        // center (22, 31), radius 4, intensity 160
+        int cx = 22, cy = 31, r = 4;
 
         for(int i = 0; i < M; i++)
             for(int j = 0; j < N; j++) {

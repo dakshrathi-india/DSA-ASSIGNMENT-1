@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-This project implements an **object detection system** for identifying and classifying specific object-like patterns in grayscale images. The system detects rectangular and circular objects, extracts their properties, classifies their shape type, and generates visual representations with bounding boxes using Depth-First Search (DFS) based flood-fill algorithm.
+This project implements an **object detection system** for identifying and classifying specific object-like patterns in grayscale images. The system detects rectangular and circular objects, extracts their properties, classifies their shape type, and generates visual representations with bounding boxes using a stack-based region collection process.
 
 ## Problem Statement
 
@@ -14,28 +14,213 @@ The program must traverse the matrix efficiently using appropriate Data Structur
 
 ## Solution Approach
 
-### Algorithm: DFS-based Flood Fill with Shape Classification
+### Region Collection and Shape Classification
 
-The solution uses an **iterative DFS** (Depth-First Search) implementation with a stack to identify and classify connected components:
+The solution scans the image point by point and uses a stack to gather one full object region at a time:
 
-1. **Read Image**: Load M×N grayscale image into memory
-2. **Initialize Tracking**: Mark background pixels (0) as visited, object pixels as unvisited
-3. **Scan & Detect**: For each unvisited object pixel:
-   - Launch DFS flood-fill to extract the entire connected component
-   - Record bounding box coordinates and pixel count
-   - Filter out noise (components < 1% of total image area)
-4. **Classify Shape Type**: Determine if object is rectangular or circular based on fill ratio:
-   - **Circular**: Fill ratio 0.65-0.90 (π/4 ≈ 0.785) AND bounding box is nearly square
-   - **Rectangular**: Fill ratio ≥ 0.95 (dense, fills most of bounding box)
-5. **Visualize**: Draw white bounding boxes around detected objects and display with ASCII art
+1. **Read Image**: Load the complete M×N grayscale image into memory.
+2. **Initialize Tracking**: Build the `visited` array with this rule:
+   - intensity `0` pixels are marked `true`
+   - all remaining pixels are marked `false`
+3. **Scan & Detect**: Move through each and every pixel in row-major order.
+4. **Start Region Collection**: Whenever a pixel is still unvisited, call the helper function `buildComponent(row, col)`.
+5. **Inside `buildComponent(row, col)`**:
+   - push the starting pixel into the stack
+   - mark it visited
+   - repeatedly remove one pixel from the stack and store the popped pixel in `curr_pixel`
+   - inspect the neighbourhood of `curr_pixel` in the 4 direct directions: up, down, left, right
+   - push a neighbour only if it is inside the image, has not been visited, and satisfies `|seed_intensity - neighbour_intensity| < T`
+   - keep updating the boundary-box attributes of the current region: minimum row, maximum row, minimum column, maximum column, and area
+6. **Noise Filtering**: Ignore very small regions whose area is less than 1% of the total image size.
+7. **Classify Shape Type**: Use fill ratio and box shape to decide whether the detected region is rectangular or circular.
+8. **Visualize**: Draw white bounding boxes around detected objects and display them with ASCII art.
 
-### Key Data Structures
+## Data Structures
 
-- **Point Class**: Represents pixel coordinates with boundary validation
-- **Stack Class**: Implements LIFO structure for DFS traversal
-- **Component Class**: Stores detected component's bounding box and metrics
-- **Node Class**: Linked list node for storing detected components
-- **Visited Array**: Boolean tracking for DFS algorithm
+### Class: Point
+```cpp
+Represents: Single pixel coordinate
+Members:
+   - rownum: Row index
+   - colnum: Column index
+Methods:
+   - isValid(): Check if the point lies inside the image bounds
+```
+
+### Class: Stack
+```cpp
+Purpose: Store pixels that still need to be processed in the current region
+Operations:
+   - push(Point): Add a pixel to the top
+   - pop(): Remove the top pixel and return it
+   - isEmpty(): Check whether the stack still contains pixels
+Time Complexity: O(1) per operation
+Capacity: M*N pixels in the worst case
+```
+
+### Class: Component
+```cpp
+Represents: One detected region in the grayscale image
+Members:
+   - minrow: Smallest row index in the region
+   - maxrow: Largest row index in the region
+   - mincol: Smallest column index in the region
+   - maxcol: Largest column index in the region
+   - area: Number of pixels in the region
+Methods:
+   - height(): Height of the boundary box
+   - width(): Width of the boundary box
+   - boxArea(): Area of the boundary box
+   - fillRatio(): ratio = region_area / boundary_box_area
+```
+
+### Class: Node
+```cpp
+Represents: One node in the linked list of detected regions
+Members:
+   - component: The stored Component
+   - type: Shape label ('r', 'c', or 'o')
+   - next: Pointer to the next node
+Purpose: Dynamic storage of all accepted regions
+```
+
+### Visited Array
+```cpp
+Represents: Boolean tracking array of size M*N
+Initialization:
+   - true for background pixels with intensity 0
+   - false for object pixels with non-zero intensity
+Purpose: Prevent revisiting pixels that have already been processed
+```
+
+### Result Linked List
+```cpp
+Head pointer: Ans_H
+Tail pointer: Ans_T
+Purpose: Store all detected regions efficiently as they are found
+Benefit: New regions can be appended in O(1) time
+```
+
+## Algorithms
+
+### Algorithm: Region Collection with `buildComponent(row, col)`
+```cpp
+Purpose: Extract one complete grayscale region starting from an unvisited seed pixel
+Input:
+   - start_row, start_col: coordinates of the seed pixel
+Working steps:
+   1. Create an empty Component object
+   2. Push the seed pixel into the stack
+   3. Mark the seed pixel as visited
+   4. Repeatedly pop a pixel into curr_pixel while the stack is not empty
+   5. Update the boundary-box attributes of the region:
+       - minrow
+       - maxrow
+       - mincol
+       - maxcol
+       - area
+   6. Inspect the neighbourhood of curr_pixel in 4 directions:
+       - up    (-1, 0)
+       - down  (+1, 0)
+       - left  (0, -1)
+       - right (0, +1)
+   7. Push a neighbour only if:
+       - it lies inside the image
+       - it has not been visited yet
+       - its intensity differs from the seed by less than T
+Output:
+   - complete Component containing area and boundary-box values
+```
+
+**4-connectivity used by the code**:
+```text
+            UP (-1, 0)
+               |
+               |
+LEFT (0, -1) -- CENTER -- RIGHT (0, +1)
+               |
+               |
+         DOWN (+1, 0)
+```
+
+### Algorithm: Full Image Detection with `detection()`
+```cpp
+Purpose: Scan the full image and identify all significant regions
+Working steps:
+   1. Traverse the image row by row and column by column
+   2. When an unvisited non-background pixel is found, call buildComponent(row, col)
+   3. Receive the extracted Component
+   4. Apply noise filtering
+   5. If the region area is larger than 1% of the image size, store it in the result linked list
+Output:
+   - linked list of all accepted regions through Ans_H and Ans_T
+```
+
+### Algorithm: Similarity Test
+```cpp
+Threshold used: T = 10
+Condition:
+   abs(seed_intensity - neighbour_intensity) < T
+Meaning:
+   - smaller T gives stricter grouping
+   - larger T allows more variation inside one region
+```
+
+In this implementation, the intensity of the starting seed pixel is used as the reference while checking neighbouring pixels.
+
+### Algorithm: Noise Filtering
+```cpp
+Purpose: Ignore tiny regions that are likely noise
+Condition:
+   component.area > 0.01 * (M * N)
+Meaning:
+   - only regions larger than 1% of the full image are kept
+```
+
+### Algorithm: Shape Classification
+```cpp
+Fill Ratio:
+   fillRatio = area / boundingBoxArea
+
+Rectangular region:
+   fillRatio >= 0.95
+
+Circular region:
+   0.65 < fillRatio < 0.90
+   and the boundary box is nearly square
+
+Other region:
+   any region that does not satisfy the above rules
+```
+
+The code also checks that the width and height of the boundary box differ by less than 10% of the larger dimension before the region is labeled circular.
+
+### Algorithm: Boundary Construction with `buildBoundary()`
+```cpp
+Purpose: Draw a white rectangular boundary around every detected region
+Working steps for each region:
+   1. Draw the left edge from minrow to maxrow at mincol
+   2. Draw the right edge from minrow to maxrow at maxcol
+   3. Draw the top edge from mincol to maxcol at minrow
+   4. Draw the bottom edge from mincol to maxcol at maxrow
+Drawing value:
+   - 255, which is the brightest grayscale intensity
+```
+
+### Algorithm: Visual Rendering with `printVisualImage()`
+```cpp
+Purpose: Convert grayscale intensities into ASCII characters for terminal display
+Mapping:
+   - 0 to 30    -> space
+   - 31 to 60   -> `
+   - 61 to 100  -> -
+   - 101 to 150 -> +
+   - 151 to 200 -> @
+   - 201 to 255 -> $
+Result:
+   - the original intensity pattern remains visible
+   - the white bounding box appears clearly as $
+```
 
 ## File Structure
 
@@ -47,9 +232,14 @@ Q1/
 ├── input_tc2.in                # Test case 2: Two Circles (different sizes)
 ├── input_tc3.in                # Test case 3: Multiple Rectangles
 ├── input_tc4.in                # Test case 4: Rectangle and Circle far apart
-├── instructions.md             # Project execution instructions
 └── README.md                   # This file
 ```
+
+## Quick Start
+
+Follow these steps to compile the project, generate test inputs, and run the detection program on each test case.
+
+**Prerequisites**: GCC compiler (`g++`) installed and available in `PATH`
 
 ## Input Format
 
@@ -94,6 +284,8 @@ ASCII art visualization with character mapping:
 - **`@`** (at sign): Bright (151-200)
 - **`$`** (dollar): White boundaries/bounding boxes (201-255)
 
+The visualization is produced by converting each grayscale value range into one display character. This keeps the terminal output readable while still preserving brightness differences across the image. The white box is drawn by setting the boundary pixels to intensity `255`, which is why the box appears clearly as `$` in the final output.
+
 ## Compilation & Execution
 
 ### Step 1: Compile the test case generator
@@ -120,46 +312,13 @@ g++ detection_copy.cpp -o detection.exe
 ./detection.exe < input_tc4.in
 ```
 
-## Algorithm Details
+### What the generator produces
 
-### 4-Connectivity for Component Detection
-Components are identified using **4-connectivity** (adjacent pixels share an edge):
-```
-      UP (−1,0)
-        ↓
-LEFT(0,−1) ← CENTER → RIGHT(0,+1)
-        ↑
-     DOWN (1,0)
-```
-
-### Similarity Threshold (T)
-- **Default T = 10**: Maximum intensity difference between adjacent pixels
-- Neighbors included if `|seed_intensity - neighbor_intensity| < T`
-- **Smaller T** → Stricter grouping → More components detected
-- **Larger T** → Looser grouping → Fewer, larger components
-
-### Noise Filtering
-Components with area < 1% of total image area are filtered out:
-```
-minimum_pixels = 0.01 × M × N
-```
-
-### Shape Classification
-
-**Fill Ratio** = (actual_pixels) / (bounding_box_area)
-
-#### Rectangular Components
-- Fill ratio ≥ 0.95 (dense, fills box)
-- Example: Perfect rectangle fills 100%
-
-#### Circular Components
-- Fill ratio: 0.65 - 0.90
-- Theoretical: π/4 ≈ 0.785 (78.5%)
-- Bounding box must be nearly square (aspect ratio ~1:1)
-
-#### Other Components
-- Fill ratio outside above ranges
-- Irregular or unusual shapes
+- **Test Case 1**: Mixed shapes (1 square + 1 rectangle + 1 circle)
+- **Test Case 2**: Two circles with different sizes and intensities
+- **Test Case 3**: Two rectangles with different dimensions
+- **Test Case 4**: Rectangle and circle far apart
+- **Image size used in the generated cases**: `60 x 80`
 
 ## Complexity Analysis
 
@@ -167,7 +326,7 @@ minimum_pixels = 0.01 × M × N
 |-----------|-----------------|------------------|
 | Read image | O(M×N) | O(M×N) |
 | Initialize visited | O(M×N) | O(M×N) |
-| DFS for one component | O(M×N) | O(M×N) |
+| Process one region | O(M×N) | O(M×N) |
 | Detection (all components) | O(M×N) | O(M×N) |
 | Build boundaries | O(perimeter) | O(1) |
 | Print visual | O(M×N) | O(1) |
@@ -177,7 +336,9 @@ minimum_pixels = 0.01 × M × N
 
 - **Dynamic allocation**: `matrix`, `visited`, and component linked list nodes
 - **Cleanup**: `freeHeapMemory()` releases all allocated memory
-- **Stack-based DFS**: Avoids recursive call stack overflow for large components
+- **Stack-based processing**: Avoids recursive call stack overflow for large regions
+
+The detected regions are stored in a linked list using `Ans_H` and `Ans_T`, so each accepted region can be added efficiently at the end of the result list.
 
 ## Code Structure
 
@@ -185,20 +346,20 @@ minimum_pixels = 0.01 × M × N
 Global Variables
 ├── M, N: Image dimensions
 ├── matrix: Pixel data
-├── visited: DFS tracking array
+├── visited: tracking array
 └── T: Similarity threshold
 
 Classes
 ├── Point: Pixel coordinates
-├── Stack: DFS working structure
+├── Stack: working structure for region collection
 ├── Component: Detected object properties
-└── Node: Linked list for storing components
+└── Node: Linked list for storing regions
 
 Functions
 ├── initMatrix(): Read image data
 ├── initVisited(): Initialize tracking
-├── buildComponent(row, col): DFS flood-fill
-├── detection(): Find all components
+├── buildComponent(row, col): Gather one full region
+├── detection(): Find all regions
 ├── printIdentifiedComponents(): Display results
 ├── buildBoundary(): Draw bounding boxes
 ├── printVisualImage(): ASCII visualization
@@ -270,6 +431,26 @@ Box Area 144
 [Visual representation follows]
 ```
 
+## Output Interpretation Guide
+
+### Fill Ratio Range
+
+- **0.95 - 1.0**: Nearly perfect rectangle because the region fills most of its box
+- **0.65 - 0.90**: Likely a circle because the filled area is lower than a rectangle but still dense
+- **Below 0.65 or above 0.90**: Irregular or other shape
+
+### Type Field
+
+- **`r`**: Rectangular region
+- **`c`**: Circular region
+- **`o`**: Other irregular region
+
+### Visual Markers
+
+- space: background
+- grayscale characters: object pixels with different brightness
+- **`$`**: bounding-box pixels drawn by the program
+
 ## Edge Cases Handled
 
 1. **Empty image**: No components → "no region identified"
@@ -278,51 +459,63 @@ Box Area 144
 4. **Boundary pixels**: Correctly included in bounding box
 5. **Out-of-bounds**: Boundary checking prevents crashes
 
-## Performance Notes
-
-- **Image size M×N = 60×80 = 4,800 pixels**: ~1000x faster than O(n²) brute force
-- **Memory usage**: O(M×N) = ~19KB for test cases
-- **Linear scaling**: Doubling image size doubles computation time (linear growth)
-
 ## Algorithmic Advantages
 
 ✓ **O(M×N) optimal complexity**: Each pixel visited exactly once  
-✓ **Iterative DFS**: No recursion depth limit issues  
+✓ **Stack-based processing**: No recursion depth limit issues  
 ✓ **4-connectivity**: Finds true adjacent components  
 ✓ **Noise filtering**: Built-in outlier removal  
 ✓ **Shape classification**: Automatic type detection  
 ✓ **Visual feedback**: ASCII art for quick verification  
 
-## Future Enhancements
+## Troubleshooting
 
-- 8-connectivity support (include diagonal neighbors)
-- Moment-based shape descriptors (circularity, elongation)
-- Contour tracing for boundary extraction
-- Image preprocessing (blur, threshold) capabilities
-- Multiple input image formats (PNG, JPG)
-- Interactive visualization with GUI
-- Parallel DFS for very large images
+### Problem: `g++` not found
+
+- Install GCC or MinGW/MSVC as appropriate for your system
+- Ensure the compiler is available in `PATH`
+
+### Problem: Compilation errors
+
+- Check C++ syntax in the source files
+- Use at least C++11: `g++ -std=c++11 detection_copy.cpp -o detection.exe`
+- Ensure file names match exactly
+
+### Problem: Input file not found
+
+- Run `matrixgenerator.exe` first to create the input files
+- Confirm that `input_tc1.in` to `input_tc4.in` exist in the current folder
+
+### Problem: Program crashes or shows no result
+
+- Check that the input format is correct
+- Verify that dimensions match the amount of pixel data
+- Confirm pixel values stay within `0` to `255`
+- If no object is reported, the region may have been filtered out by the 1% noise threshold
+
+## Success Criteria
+
+You have successfully run Q1 when:
+
+- all 4 input files are generated without errors
+- the detector compiles without errors
+- each test case produces component output
+- fill ratio, type, and bounding-box values are shown
+- the visual output displays the bounding boxes clearly
+- the program exits without runtime or memory errors
 
 ## Key Insights
 
 1. **Linear indexing** for 2D arrays: `arr[i][j]` → `arr[i*N+j]` improves cache locality
-2. **DFS over BFS**: Stack-based DFS uses less memory and finds components efficiently
+2. **Stack-based traversal**: Using an explicit stack keeps the processing order simple and avoids recursion
 3. **Visited tracking**: Eliminates redundant processing and cycle detection
-4. **Flood-fill paradigm**: Standard technique in image processing (paint bucket tool)
+4. **Neighbour-based region growth**: Pixels are grouped by local intensity similarity and 4-neighbour checks
 5. **Shape metrics**: Fill ratio elegantly captures shape information
 6. **Linked lists**: Dynamic data structure perfect for unknown component count
 
-## References
-
-- Depth-First Search (DFS) algorithm fundamentals
-- Flood-fill algorithms in image processing
-- Connected components analysis
-- Image morphology and shape classification
-- Memory-efficient DSA implementations
-
 ---
 
-**Author**: IC 253 Assignment 1  
+**Author**: DAKSH RATHI  
 **Date**: 2026
 **Language**: C++  
 **Standard**: C++11 or later
